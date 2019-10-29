@@ -74,6 +74,51 @@ def check_if_user_exists():
     else:
         return "index.html"
 
+def mail_parsing(uid,message,unread_uid):
+    # print(message.attachments)
+    sanitized_body = str(message.body["html"])
+    if sanitized_body == "[]":
+        sanitized_body = str(message.body["plain"])
+    sanitized_body = sanitized_body.replace(r"['\r\n", "&#13;")
+    sanitized_body = sanitized_body.replace(r"[b'", "&#13;")
+    sanitized_body = sanitized_body.replace(r"\r\n", "&#13;")
+    sanitized_body = sanitized_body.replace(r"\r", "&#13;")
+    sanitized_body = sanitized_body.replace(r"\n", "&#13;")
+    sanitized_body = sanitized_body.replace(r"\t", "")
+    sanitized_body = sanitized_body.replace(r"['", "")
+    sanitized_body = sanitized_body.replace(r"']", "")
+    sanitized_body = sanitized_body.replace(r"\u200", "")
+
+    # Apply local time to base server time
+    from_name = message.sent_from[0]["name"]
+    from_mail = message.sent_from[0]["email"]
+    to_name = message.sent_to[0]["name"]
+    to_mail = message.sent_to[0]["email"]
+
+    # If html body is empty, load the plain
+    if sanitized_body == "[]":
+        sanitized_body = message.body["plain"]
+
+    if uid.decode() in unread_uid:
+        unread = False
+    else:
+        unread = True
+
+    subject = str(message.subject) if str(message.subject) else "(No subject)"
+    appmails = {
+        "uid": uid.decode(),
+        "From_name": str(from_name),
+        "from_mail": str(from_mail),
+        "To_name": str(to_name),
+        "To_mail": str(to_mail),
+        "Subject": str(subject),
+        "bodyHTML": str(sanitized_body),
+        "bodyPLAIN": str(message.body["plain"]),
+        "directory": "",
+        "datetimes": str(datetime.date(year, month, day)),
+        "readed": unread,
+    }
+    return appmails
 
 @eel.expose
 def check_smtp_connection(username, password, smtp):
@@ -116,7 +161,6 @@ def check_imap_connection(email, passw, imap):
     except Exception as e:
         return False
 
-
 @eel.expose
 def get_mails(year, month, day):
     # Download all the mails from the DB
@@ -147,64 +191,9 @@ def get_mails(year, month, day):
         logging.debug("Gathered all inbox messages")
 
         for uid, message in reversed(all_inbox_messages):
-            # print(message.attachments)
-            sanitized_body = str(message.body["html"])
-            if sanitized_body == "[]":
-                sanitized_body = str(message.body["plain"])
-            sanitized_body = sanitized_body.replace(r"['\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"[b'", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\t", "")
-            sanitized_body = sanitized_body.replace(r"['", "")
-            sanitized_body = sanitized_body.replace(r"']", "")
-            sanitized_body = sanitized_body.replace(r"\u200", "")
+            mail = mail_parsing(uid,message,unread_uid)
+            mails.append(mail)
 
-            # Apply local time to base server time
-            from_name = message.sent_from[0]["name"]
-            from_mail = message.sent_from[0]["email"]
-            to_name = message.sent_to[0]["name"]
-            to_mail = message.sent_to[0]["email"]
-
-            # If html body is empty, load the plain
-            if sanitized_body == "[]":
-                sanitized_body = message.body["plain"]
-
-            if uid.decode() in unread_uid:
-                unread = False
-            else:
-                unread = True
-
-            subject = str(message.subject) if str(message.subject) else "(No subject)"
-            appmails = {
-                "uid": uid.decode(),
-                "From_name": str(from_name),
-                "from_mail": str(from_mail),
-                "To_name": str(to_name),
-                "To_mail": str(to_mail),
-                "Subject": str(subject),
-                "bodyHTML": str(sanitized_body),
-                "bodyPLAIN": str(message.body["plain"]),
-                "directory": "",
-                "datetimes": str(datetime.date(year, month, day)),
-                "readed": unread,
-            }
-            mails.append(appmails)
-
-            """db_api.insert("emails",
-            {
-                'uid': uid.decode(),
-                'from_name': str(From_name),
-                'from_mail': str(from_mail),
-                'to_name': str(To_name),
-                'to_mail': str(To_mail),
-                'subject': str(Subject),
-                'bodyHTML': str(sanitized_body),
-                'bodyPLAIN': str(message.body['plain']),
-                'directory': "",
-                'datetimes': datetime.date(year,month,day)
-                })"""
         return mails
 
 
@@ -272,64 +261,9 @@ def get_unread():
         logging.debug("Gathered all inbox messages")
 
         for uid, message in reversed(all_inbox_messages):
-            # print(message.attachments)
-            sanitized_body = str(message.body["html"])
-            if sanitized_body == "[]":
-                sanitized_body = str(message.body["plain"])
-            sanitized_body = sanitized_body.replace(r"['\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"[b'", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\t", "")
-            sanitized_body = sanitized_body.replace(r"['", "")
-            sanitized_body = sanitized_body.replace(r"']", "")
-            sanitized_body = sanitized_body.replace(r"\u200", "")
+            mail = mail_parsing(uid,message,unread_uid)
+            mails.append(mail)
 
-            # Apply local time to base server time
-            from_name = message.sent_from[0]["name"]
-            from_mail = message.sent_from[0]["email"]
-            to_name = message.sent_to[0]["name"]
-            to_mail = message.sent_to[0]["email"]
-
-            # If html body is empty, load the plain
-            if sanitized_body == "[]":
-                sanitized_body = message.body["plain"]
-
-            if uid.decode() in unread_uid:
-                unread = False
-            else:
-                unread = True
-
-            subject = str(message.subject) if str(message.subject) else "(No subject)"
-            appmails = {
-                "uid": uid.decode(),
-                "From_name": str(from_name),
-                "From_mail": str(from_mail),
-                "To_name": str(to_name),
-                "To_mail": str(to_mail),
-                "Subject": str(subject),
-                "bodyHTML": str(sanitized_body),
-                "bodyPLAIN": str(message.body["plain"]),
-                "directory": "",
-                "datetimes": str(message.date),
-                "readed": unread,
-            }
-            mails.append(appmails)
-
-            """db_api.insert("emails",
-                {
-                'uid': uid.decode(),
-                'from_name': str(From_name),
-                'from_mail': str(From_mail),
-                'to_name': str(To_name),
-                'to_mail': str(To_mail),
-                'subject': str(Subject),
-                'bodyHTML': str(sanitized_body),
-                'bodyPLAIN': str(message.body['plain']),
-                'directory': "",
-                'datetimes': datetime.date(year,month,day)
-                })"""
         return mails
 
 
@@ -359,64 +293,9 @@ def get_starred():
         logging.debug("Gathered all inbox messages")
 
         for uid, message in reversed(all_inbox_messages):
-            # print(message.attachments)
-            sanitized_body = str(message.body["html"])
-            if sanitized_body == "[]":
-                sanitized_body = str(message.body["plain"])
-            sanitized_body = sanitized_body.replace(r"['\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"[b'", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\t", "")
-            sanitized_body = sanitized_body.replace(r"['", "")
-            sanitized_body = sanitized_body.replace(r"']", "")
-            sanitized_body = sanitized_body.replace(r"\u200", "")
+            mail = mail_parsing(uid,message,unread_uid)
+            mails.append(mail)
 
-            # Apply local time to base server time
-            from_name = message.sent_from[0]["name"]
-            from_mail = message.sent_from[0]["email"]
-            to_name = message.sent_to[0]["name"]
-            to_mail = message.sent_to[0]["email"]
-
-            # If html body is empty, load the plain
-            if sanitized_body == "[]":
-                sanitized_body = message.body["plain"]
-
-            if uid.decode() in unread_uid:
-                unread = False
-            else:
-                unread = True
-
-            subject = str(message.subject) if str(message.subject) else "(No subject)"
-            appmails = {
-                "uid": uid.decode(),
-                "From_name": str(from_name),
-                "From_mail": str(from_mail),
-                "To_name": str(to_name),
-                "To_mail": str(to_mail),
-                "Subject": str(subject),
-                "bodyHTML": str(sanitized_body),
-                "bodyPLAIN": str(message.body["plain"]),
-                "directory": "",
-                "datetimes": str(message.date),
-                "readed": unread,
-            }
-            mails.append(appmails)
-
-            """db_api.insert("emails",
-                {
-                'uid': uid.decode(),
-                'from_name': str(From_name),
-                'from_mail': str(From_mail),
-                'to_name': str(To_name),
-                'to_mail': str(To_mail),
-                'subject': str(Subject),
-                'bodyHTML': str(sanitized_body),
-                'bodyPLAIN': str(message.body['plain']),
-                'directory': "",
-                'datetimes': datetime.date(year,month,day)
-                })"""
         return mails
 
 
@@ -446,64 +325,9 @@ def get_sent():
         logging.debug("Gathered all inbox messages")
 
         for uid, message in reversed(all_inbox_messages):
-            # print(message.attachments)
-            sanitized_body = str(message.body["html"])
-            if sanitized_body == "[]":
-                sanitized_body = str(message.body["plain"])
-            sanitized_body = sanitized_body.replace(r"['\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"[b'", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\t", "")
-            sanitized_body = sanitized_body.replace(r"['", "")
-            sanitized_body = sanitized_body.replace(r"']", "")
-            sanitized_body = sanitized_body.replace(r"\u200", "")
+            mail = mail_parsing(uid,message,unread_uid)
+            mails.append(mail)
 
-            # Apply local time to base server time
-            from_name = message.sent_from[0]["name"]
-            from_mail = message.sent_from[0]["email"]
-            to_name = message.sent_to[0]["name"]
-            to_mail = message.sent_to[0]["email"]
-
-            # If html body is empty, load the plain
-            if sanitized_body == "[]":
-                sanitized_body = message.body["plain"]
-
-            if uid.decode() in unread_uid:
-                unread = False
-            else:
-                unread = True
-
-            subject = str(message.subject) if str(message.subject) else "(No subject)"
-            appmails = {
-                "uid": uid.decode(),
-                "From_name": str(from_name),
-                "From_mail": str(from_mail),
-                "To_name": str(to_name),
-                "To_mail": str(to_mail),
-                "Subject": str(subject),
-                "bodyHTML": str(sanitized_body),
-                "bodyPLAIN": str(message.body["plain"]),
-                "directory": "",
-                "datetimes": str(message.date),
-                "readed": unread,
-            }
-            mails.append(appmails)
-
-            """db_api.insert("emails",
-                {
-                'uid': uid.decode(),
-                'from_name': str(From_name),
-                'from_mail': str(From_mail),
-                'to_name': str(To_name),
-                'to_mail': str(To_mail),
-                'subject': str(Subject),
-                'bodyHTML': str(sanitized_body),
-                'bodyPLAIN': str(message.body['plain']),
-                'directory': "",
-                'datetimes': datetime.date(year,month,day)
-                })"""
         return mails
 
 
@@ -533,64 +357,9 @@ def get_unwanted():
         logging.debug("Gathered all inbox messages")
 
         for uid, message in reversed(all_inbox_messages):
-            # print(message.attachments)
-            sanitized_body = str(message.body["html"])
-            if sanitized_body == "[]":
-                sanitized_body = str(message.body["plain"])
-            sanitized_body = sanitized_body.replace(r"['\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"[b'", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\t", "")
-            sanitized_body = sanitized_body.replace(r"['", "")
-            sanitized_body = sanitized_body.replace(r"']", "")
-            sanitized_body = sanitized_body.replace(r"\u200", "")
+            mail = mail_parsing(uid,message,unread_uid)
+            mails.append(mail)
 
-            # Apply local time to base server time
-            from_name = message.sent_from[0]["name"]
-            from_mail = message.sent_from[0]["email"]
-            to_name = message.sent_to[0]["name"]
-            to_mail = message.sent_to[0]["email"]
-
-            # If html body is empty, load the plain
-            if sanitized_body == "[]":
-                sanitized_body = message.body["plain"]
-
-            if uid.decode() in unread_uid:
-                unread = False
-            else:
-                unread = True
-
-            subject = str(message.subject) if str(message.subject) else "(No subject)"
-            appmails = {
-                "uid": uid.decode(),
-                "From_name": str(from_name),
-                "From_mail": str(from_mail),
-                "To_name": str(to_name),
-                "To_mail": str(to_mail),
-                "Subject": str(subject),
-                "bodyHTML": str(sanitized_body),
-                "bodyPLAIN": str(message.body["plain"]),
-                "directory": "",
-                "datetimes": str(message.date),
-                "readed": unread,
-            }
-            mails.append(appmails)
-
-            """db_api.insert("emails",
-                {
-                'uid': uid.decode(),
-                'from_name': str(From_name),
-                'from_mail': str(From_mail),
-                'to_name': str(To_name),
-                'to_mail': str(To_mail),
-                'subject': str(Subject),
-                'bodyHTML': str(sanitized_body),
-                'bodyPLAIN': str(message.body['plain']),
-                'directory': "",
-                'datetimes': datetime.date(year,month,day)
-                })"""
         return mails
 
 
@@ -620,64 +389,9 @@ def get_deleted():
         logging.debug("Gathered all inbox messages")
 
         for uid, message in reversed(all_inbox_messages):
-            # print(message.attachments)
-            sanitized_body = str(message.body["html"])
-            if sanitized_body == "[]":
-                sanitized_body = str(message.body["plain"])
-            sanitized_body = sanitized_body.replace(r"['\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"[b'", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\t", "")
-            sanitized_body = sanitized_body.replace(r"['", "")
-            sanitized_body = sanitized_body.replace(r"']", "")
-            sanitized_body = sanitized_body.replace(r"\u200", "")
+            mail = mail_parsing(uid,message,unread_uid)
+            mails.append(mail)
 
-            # Apply local time to base server time
-            from_name = message.sent_from[0]["name"]
-            from_mail = message.sent_from[0]["email"]
-            to_name = message.sent_to[0]["name"]
-            to_mail = message.sent_to[0]["email"]
-
-            # If html body is empty, load the plain
-            if sanitized_body == "[]":
-                sanitized_body = message.body["plain"]
-
-            if uid.decode() in unread_uid:
-                unread = False
-            else:
-                unread = True
-
-            subject = str(message.subject) if str(message.subject) else "(No subject)"
-            appmails = {
-                "uid": uid.decode(),
-                "From_name": str(from_name),
-                "From_mail": str(from_mail),
-                "To_name": str(to_name),
-                "To_mail": str(to_mail),
-                "Subject": str(subject),
-                "bodyHTML": str(sanitized_body),
-                "bodyPLAIN": str(message.body["plain"]),
-                "directory": "",
-                "datetimes": str(message.date),
-                "readed": unread,
-            }
-            mails.append(appmails)
-
-            """db_api.insert("emails",
-                {
-                'uid': uid.decode(),
-                'from_name': str(From_name),
-                'from_mail': str(From_mail),
-                'to_name': str(To_name),
-                'to_mail': str(To_mail),
-                'subject': str(Subject),
-                'bodyHTML': str(sanitized_body),
-                'bodyPLAIN': str(message.body['plain']),
-                'directory': "",
-                'datetimes': datetime.date(year,month,day)
-                })"""
         return mails
 
 
@@ -758,64 +472,9 @@ def get_flagged():
         logging.debug("Gathered all inbox messages")
 
         for uid, message in reversed(all_inbox_messages):
-            # print(message.attachments)
-            sanitized_body = str(message.body["html"])
-            if sanitized_body == "[]":
-                sanitized_body = str(message.body["plain"])
-            sanitized_body = sanitized_body.replace(r"['\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"[b'", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\r", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\n", "&#13;")
-            sanitized_body = sanitized_body.replace(r"\t", "")
-            sanitized_body = sanitized_body.replace(r"['", "")
-            sanitized_body = sanitized_body.replace(r"']", "")
-            sanitized_body = sanitized_body.replace(r"\u200", "")
+            mail = mail_parsing(uid,message,unread_uid)
+            mails.append(mail)
 
-            # Apply local time to base server time
-            from_name = message.sent_from[0]["name"]
-            from_mail = message.sent_from[0]["email"]
-            to_name = message.sent_to[0]["name"]
-            to_mail = message.sent_to[0]["email"]
-
-            # If html body is empty, load the plain
-            if sanitized_body == "[]":
-                sanitized_body = message.body["plain"]
-
-            if uid.decode() in unread_uid:
-                unread = False
-            else:
-                unread = True
-
-            subject = str(message.subject) if str(message.subject) else "(No subject)"
-            appmails = {
-                "uid": uid.decode(),
-                "From_name": str(from_name),
-                "From_mail": str(from_mail),
-                "To_name": str(to_name),
-                "To_mail": str(to_mail),
-                "Subject": str(subject),
-                "bodyHTML": str(sanitized_body),
-                "bodyPLAIN": str(message.body["plain"]),
-                "directory": "",
-                "datetimes": str(datetime.date(year, month, day)),
-                "readed": unread,
-            }
-            mails.append(appmails)
-
-            """db_api.insert("emails",
-                {
-                'uid': uid.decode(),
-                'from_name': str(From_name),
-                'from_mail': str(From_mail),
-                'to_name': str(To_name),
-                'to_mail': str(To_mail),
-                'subject': str(Subject),
-                'bodyHTML': str(sanitized_body),
-                'bodyPLAIN': str(message.body['plain']),
-                'directory': "",
-                'datetimes': datetime.date(year,month,day)
-                })"""
         return mails
 
 
